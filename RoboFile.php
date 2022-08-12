@@ -26,11 +26,14 @@ class RoboFile extends \Robo\Tasks
      *
      * @var string
      */
-    var $cloneCommerceDataExport = " && git clone https://github.com/magento-commerce/commerce-data-export";
-    var $cloneServicesConnector  = " && git clone https://github.com/magento-commerce/services-connector";
-    var $cloneServicesID         = " && git clone https://github.com/magento-commerce/services-id";
-    var $cloneSaasExport         = " && git clone https://github.com/magento-commerce/saas-export";
-    var $cloneInventory          = " && git clone https://github.com/magento-commerce/inventory";
+    var $cloneCommerceDataExport     = " && git clone https://github.com/magento-commerce/commerce-data-export";
+    var $cloneServicesConnector      = " && git clone https://github.com/magento-commerce/services-connector";
+    var $cloneServicesID             = " && git clone https://github.com/magento-commerce/services-id";
+    var $cloneSaasExport             = " && git clone https://github.com/magento-commerce/saas-export";
+    var $cloneInventory              = " && git clone https://github.com/magento-commerce/inventory";
+    var $cloneModuleApiExtensibility = " && git clone https://github.com/magento-commerce/module-api-extensibility";
+    var $cloneModuleEventPlugins     = " && git clone https://github.com/magento-commerce/module-event-plugins";
+    var $cloneModuleAdobeIoEvents    = " && git clone https://github.com/magento-commerce/module-adobe-io-events";
 
     /**
      * CD LAMP stack command variables
@@ -57,6 +60,7 @@ class RoboFile extends \Robo\Tasks
 
     var $gitPull            = " && git pull";
     var $composerInstall    = " && composer install";
+    var $composerUpdate     = " && composer update";
     var $gitCheckout        = " && git checkout -- .";
 
     var $makeDirectoryUtils = " && mkdir -p dev/tests/acceptance/utils";
@@ -70,6 +74,13 @@ class RoboFile extends \Robo\Tasks
     var $removeMagento2_CE  = " && rm -rf magento2ce";
     var $removeMagento2_EE  = " && rm -rf magento2ee";
 
+    var $addModuleApiExtensibilityRepo = "composer config repositories.module-api-extensibility '{\"type\": \"git\", \"url\": \"git@github.com:magento-commerce/module-api-extensibility.git\"}'";
+    var $addModuleAdobeIoEventsRepo    = "composer config repositories.module-adobe-io-events '{\"type\": \"git\", \"url\": \"git@github.com:magento-commerce/module-adobe-io-events.git\"}'";
+    var $addModuleEventPluginsRepo     = "composer config repositories.module-event-plugins '{\"type\": \"git\", \"url\": \"git@github.com:magento-commerce/module-event-plugins.git\"}'";
+
+    var $setMinimumStability           = "composer config minimum-stability dev";
+    var $setPreferStable               = "composer config prefer-stable true";
+
     var $uninstallMagento   = " && bin/magento setup:uninstall";
     var $setModeProduction  = " && bin/magento deploy:mode:set production";
     var $setModeDeveloper   = " && bin/magento deploy:mode:set developer";
@@ -80,7 +91,15 @@ class RoboFile extends \Robo\Tasks
     var $sessionLifetime    = " && bin/magento config:set admin/security/session_lifetime 31536000";
 
     var $cleanCache         = " && bin/magento cache:clean";
-    var $flushCache          = " && bin/magento cache:flush";
+    var $flushCache         = " && bin/magento cache:flush";
+
+    var $enableAllModules   = " && bin/magento module:enable --all";
+    var $compileMagento2    = " && bin/magento setup:di:compile";
+
+    var $setServiceAccountPrivateKey      = "";
+    var $setAdobeIOWorkspaceConfiguration = "";
+    var $setAdobeCommerceInstanceID       = "";
+    var $setAdobeIOEventProviderID        = "";
 
     var $installCommerceDataExport_CE = " && php ../build-ee.php --ce-source='./magento2ce/app/code/Magento' --ee-source='./commerce-data-export' --exclude true --exclude-file='./magento2ce/.git/info/exclude'";
     var $installServicesConnector_CE  = " && php ../build-ee.php --ce-source='./magento2ce/app/code/Magento' --ee-source='./services-connector' --exclude true --exclude-file='./magento2ce/.git/info/exclude'";
@@ -114,27 +133,27 @@ class RoboFile extends \Robo\Tasks
      *     + Database Server Username   [REQUIRED  - Default: "root"]
      *     + Database Server Password   [Optional  - Default: ""]
      *     + Database Name              [REQUIRED  - Default: "magento"]
-     *     + Table prefix                [Optional  - Default: ""]
-     *         + VARIABLE NOT SUPPORTED AT THIS TIME
+     *     + Table prefix               [Optional  - Default: ""]
+     *         + VARIABLE NOT SUPPORTED AT THIS TIME.
      *
      * Step 3: Web Configuration - /setup/#/web-configuration
      *     + Your Store Address         [REQUIRED  - Default: "http://magento2ce.local/"]
      *     + Magento Admin Address      [REQUIRED  - Default: "admin_XXXXXX"]
      *     - Advanced Options:
-     *         + OPTIONS NOT SUPPORTED AT THIS TIME
+     *         + OPTIONS NOT SUPPORTED AT THIS TIME.
      *
      * Step 4: Customize Your Store - /setup/#/customize-your-store
      *     + Store Default Time Zone    [REQUIRED  - Default: "Coordinated Universal Time (UTC)"]
      *     + Store Default Currency     [REQUIRED  - Default: "US Dollar (US)"]
      *     + Store Default Language     [REQUIRED  - Default: "English (United States)"]
      *     - Advanced Modules Configurations:
-     *         + OPTIONS SUPPORTED AT THIS TIME
+     *         + OPTIONS SUPPORTED AT THIS TIME.
      *
      * Step 5: Create Admin Account - /setup/#/create-admin-account
      *     + New Username               [REQUIRED  - Default: ""]
      *     + New Email                  [REQUIRED  - Default: ""]
      *     + New Password               [REQUIRED  - Default: ""]
-     *     + Confirm Password            [REQUIRED  - Default: ""]
+     *     + Confirm Password           [REQUIRED  - Default: ""]
      *
      * Step 6: Install - /setup/#/install
      *     + No fields present on this page.
@@ -356,6 +375,49 @@ class RoboFile extends \Robo\Tasks
                 ->exec($this->CD_EE_ParentDirectory . $this->installServicesID_EE)
                 ->exec($this->CD_EE_ParentDirectory . $this->installSaasExport_EE)
                 ->exec($this->CD_EE_ParentDirectory . $this->installInventory_EE)
+                ->run();
+        }
+    }
+
+    /**
+     *
+     *
+     * @param array $opts
+     * @throws \Robo\Exception\TaskException
+     */
+    function eventing($opts = [
+        "ce" => false,
+        "ee" => false
+    ]) {
+        if ($opts["ce"]) {
+            $this->taskExecStack()
+                ->stopOnFail(false)
+                ->exec($this->CD_CE_RootDirectory . $this->cloneModuleApiExtensibility)
+                ->exec($this->CD_CE_RootDirectory . $this->cloneModuleAdobeIoEvents)
+                ->exec($this->CD_CE_RootDirectory . $this->cloneModuleEventPlugins)
+                ->exec($this->CD_CE_RootDirectory . $this->addModuleApiExtensibilityRepo)
+                ->exec($this->CD_CE_RootDirectory . $this->addModuleAdobeIoEventsRepo)
+                ->exec($this->CD_CE_RootDirectory . $this->addModuleEventPluginsRepo)
+                ->exec($this->CD_CE_RootDirectory . $this->setMinimumStability)
+                ->exec($this->CD_CE_RootDirectory . $this->setPreferStable)
+                ->exec($this->CD_CE_RootDirectory . $this->composerUpdate)
+                ->exec($this->CD_CE_RootDirectory . $this->enableAllModules)
+                ->exec($this->CD_CE_RootDirectory . $this->compileMagento2)
+                ->run();
+        } else if ($opts["ee"]) {
+            $this->taskExecStack()
+                ->stopOnFail(false)
+                ->exec($this->CD_EE_RootDirectory . $this->cloneModuleApiExtensibility)
+                ->exec($this->CD_EE_RootDirectory . $this->cloneModuleAdobeIoEvents)
+                ->exec($this->CD_EE_RootDirectory . $this->cloneModuleEventPlugins)
+                ->exec($this->CD_EE_RootDirectory . $this->addModuleApiExtensibilityRepo)
+                ->exec($this->CD_EE_RootDirectory . $this->addModuleAdobeIoEventsRepo)
+                ->exec($this->CD_EE_RootDirectory . $this->addModuleEventPluginsRepo)
+                ->exec($this->CD_EE_RootDirectory . $this->setMinimumStability)
+                ->exec($this->CD_EE_RootDirectory . $this->setPreferStable)
+                ->exec($this->CD_EE_RootDirectory . $this->composerUpdate)
+                ->exec($this->CD_EE_RootDirectory . $this->enableAllModules)
+                ->exec($this->CD_EE_RootDirectory . $this->compileMagento2)
                 ->run();
         }
     }
