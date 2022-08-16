@@ -1,4 +1,7 @@
 <?php
+
+use Robo\Exception\TaskException;
+
 /**
  * This is project's console commands configuration for Robo task runner.
  *
@@ -74,12 +77,16 @@ class RoboFile extends \Robo\Tasks
     var $removeMagento2_CE  = " && rm -rf magento2ce";
     var $removeMagento2_EE  = " && rm -rf magento2ee";
 
-    var $addModuleApiExtensibilityRepo = "composer config repositories.module-api-extensibility '{\"type\": \"git\", \"url\": \"git@github.com:magento-commerce/module-api-extensibility.git\"}'";
-    var $addModuleAdobeIoEventsRepo    = "composer config repositories.module-adobe-io-events '{\"type\": \"git\", \"url\": \"git@github.com:magento-commerce/module-adobe-io-events.git\"}'";
-    var $addModuleEventPluginsRepo     = "composer config repositories.module-event-plugins '{\"type\": \"git\", \"url\": \"git@github.com:magento-commerce/module-event-plugins.git\"}'";
+    var $addModuleApiExtensibilityRepo = " && composer config repositories.module-api-extensibility '{\"type\": \"git\", \"url\": \"git@github.com:magento-commerce/module-api-extensibility.git\"}'";
+    var $addModuleAdobeIoEventsRepo    = " && composer config repositories.module-adobe-io-events '{\"type\": \"git\", \"url\": \"git@github.com:magento-commerce/module-adobe-io-events.git\"}'";
+    var $addModuleEventPluginsRepo     = " && composer config repositories.module-event-plugins '{\"type\": \"git\", \"url\": \"git@github.com:magento-commerce/module-event-plugins.git\"}'";
 
-    var $setMinimumStability           = "composer config minimum-stability dev";
-    var $setPreferStable               = "composer config prefer-stable true";
+    var $requireModuleApiExtensibility = " && composer require \"magento/module-api-extensibility\" magento/module-api-extensibility:dev-main";
+    var $requireModuleAdobeIoEvents    = " && composer require \"magento/module-adobe-io-events\" magento/module-adobe-io-events:dev-master";
+    var $requireModuleEventsPlugins    = " && composer require \"magento/module-event-plugins\" magento/module-event-plugins:dev-main";
+
+    var $setMinimumStability           = " && composer config minimum-stability dev";
+    var $setPreferStable               = " && composer config prefer-stable true";
 
     var $uninstallMagento   = " && bin/magento setup:uninstall";
     var $setModeProduction  = " && bin/magento deploy:mode:set production";
@@ -96,10 +103,10 @@ class RoboFile extends \Robo\Tasks
     var $enableAllModules   = " && bin/magento module:enable --all";
     var $compileMagento2    = " && bin/magento setup:di:compile";
 
-    var $setServiceAccountPrivateKey      = "";
-    var $setAdobeIOWorkspaceConfiguration = "";
-    var $setAdobeCommerceInstanceID       = "";
-    var $setAdobeIOEventProviderID        = "";
+    var $setAdobeIOWorkspaceConfiguration = " && configFile=\$(cat ../config/stage.json)  && bin/magento config:set adobe_io_events/integration/workspace_configuration \"\$configFile\"";
+    var $setServiceAccountPrivateKey      = " && privateKey=\$(cat ../config/private.key) && bin/magento config:set adobe_io_events/integration/private_key \"\$privateKey\"";
+    var $setAdobeCommerceInstanceID       = " && bin/magento config:set adobe_io_events/integration/instance_id staging";
+    var $setAdobeIOEventProviderID        = " && bin/magento config:set adobe_io_events/integration/provider_id 0";
 
     var $installCommerceDataExport_CE = " && php ../build-ee.php --ce-source='./magento2ce/app/code/Magento' --ee-source='./commerce-data-export' --exclude true --exclude-file='./magento2ce/.git/info/exclude'";
     var $installServicesConnector_CE  = " && php ../build-ee.php --ce-source='./magento2ce/app/code/Magento' --ee-source='./services-connector' --exclude true --exclude-file='./magento2ce/.git/info/exclude'";
@@ -223,7 +230,7 @@ class RoboFile extends \Robo\Tasks
             " --admin-user="                    . $this->CE_NewUsername .
             " --admin-email="                   . $this->CE_NewEmail .
             " --admin-password="                . $this->CE_NewPassword .
-            " --admin-firstname=Magento"         .
+            " --admin-firstname=Magento"        .
             " --admin-lastname=User"            .
             " --use-rewrites=1";
 
@@ -241,7 +248,7 @@ class RoboFile extends \Robo\Tasks
             " --admin-user="                    . $this->EE_NewUsername .
             " --admin-email="                   . $this->EE_NewEmail .
             " --admin-password="                . $this->EE_NewPassword .
-            " --admin-firstname=Magento"         .
+            " --admin-firstname=Magento"        .
             " --admin-lastname=User"            .
             " --use-rewrites=1";
     }
@@ -251,12 +258,9 @@ class RoboFile extends \Robo\Tasks
      *
      * @param array $opts
      * @option $ce  Create the CE LAMP stack directories and clone the necessary Git repos.
-     * @throws \Robo\Exception\TaskException
+     * @throws TaskException
      */
-    function setup($opts = [
-        "ce" => false,
-        "ee" => false
-    ]) {
+    function initialSetup($opts = ["ce" => false, "ee" => false]) {
         if ($opts["ce"]) {
             $this->taskExecStack()
                 ->stopOnFail(false)
@@ -278,12 +282,9 @@ class RoboFile extends \Robo\Tasks
      *
      * @param array $opts
      * @option $ce  Runs composer install and php install.
-     * @throws \Robo\Exception\TaskException
+     * @throws TaskException
      */
-    function install($opts = [
-        "ce" => false,
-        "ee" => false
-    ]) {
+    function installMagento($opts = ["ce" => false, "ee" => false]) {
         if ($opts["ce"]) {
             $this->taskExecStack()
                 ->stopOnFail(false)
@@ -300,20 +301,20 @@ class RoboFile extends \Robo\Tasks
     }
 
     /**
-     * After completing the Setup Wizard for the LAMP stack OR running "robo lamp:setupWizard", it sets the key MFTF Configuration Settings to the correct values.
+     * After completing the Setup Wizard for the LAMP stack OR running "robo lamp:setupWizard", it sets the Configuration Settings to the correct values.
      *
-     * - Disables the WYSIWYG Editor:        bin/magento config:set admin/security/use_form_key 0
-     * - Disables the Secret Keys in URLs:   bin/magento config:set admin/security/use_form_key 0
-     * - Enables Admin Account Sharing:      bin/magento config:set admin/security/admin_account_sharing 1
+     * - Disables the WYSIWYG Editor:             bin/magento config:set cms/wysiwyg/enabled disabled
+     * - Disables the Secret Keys in URLs:        bin/magento config:set admin/security/use_form_key 0
+     * - Enables Admin Account Sharing:           bin/magento config:set admin/security/admin_account_sharing 1
+     * - Sets the Environment Mode to 'Developer: bin/magento deploy:mode:set developer
+     * - Enables URL Rewrites:                    bin/magento config:set web/seo/use_rewrites 1
+     * - Increases the Admin Timeout Sessions:    bin/magento config:set admin/security/session_lifetime 31536000
      *
      * @param array $opts
      * @option $ce  Set the Configuration variables for the LAMP instance.
-     * @throws \Robo\Exception\TaskException
+     * @throws TaskException
      */
-    function configure($opts = [
-        "ce" => false,
-        "ee" => false
-    ]) {
+    function configureMagento($opts = ["ce" => false, "ee" => false]) {
         if ($opts["ce"]) {
             $this->taskExecStack()
                 ->stopOnFail(false)
@@ -342,12 +343,9 @@ class RoboFile extends \Robo\Tasks
      *
      * @param array $opts
      * @option $ce  Clones the necessary module repos then symlinks them for the specified LAMP stack.
-     * @throws \Robo\Exception\TaskException
+     * @throws TaskException
      */
-    function modules($opts = [
-        "ce" => false,
-        "ee" => false
-    ]) {
+    function installMagentoModules($opts = ["ce" => false, "ee" => false]) {
         if ($opts["ce"]) {
             $this->taskExecStack()
                 ->stopOnFail(false)
@@ -361,6 +359,7 @@ class RoboFile extends \Robo\Tasks
                 ->exec($this->CD_CE_ParentDirectory . $this->installServicesID_CE)
                 ->exec($this->CD_CE_ParentDirectory . $this->installSaasExport_CE)
                 ->exec($this->CD_CE_ParentDirectory . $this->installInventory_CE)
+                ->exec($this->CD_CE_RootDirectory   . $this->enableAllModules)
                 ->run();
         } else if ($opts["ee"]) {
             $this->taskExecStack()
@@ -375,6 +374,7 @@ class RoboFile extends \Robo\Tasks
                 ->exec($this->CD_EE_ParentDirectory . $this->installServicesID_EE)
                 ->exec($this->CD_EE_ParentDirectory . $this->installSaasExport_EE)
                 ->exec($this->CD_EE_ParentDirectory . $this->installInventory_EE)
+                ->exec($this->CD_EE_RootDirectory   . $this->enableAllModules)
                 ->run();
         }
     }
@@ -383,41 +383,44 @@ class RoboFile extends \Robo\Tasks
      *
      *
      * @param array $opts
-     * @throws \Robo\Exception\TaskException
+     * @throws TaskException
      */
-    function eventing($opts = [
-        "ce" => false,
-        "ee" => false
-    ]) {
+    function installEventingModules($opts = ["ce" => false, "ee" => false]) {
         if ($opts["ce"]) {
             $this->taskExecStack()
                 ->stopOnFail(false)
-                ->exec($this->CD_CE_RootDirectory . $this->cloneModuleApiExtensibility)
-                ->exec($this->CD_CE_RootDirectory . $this->cloneModuleAdobeIoEvents)
-                ->exec($this->CD_CE_RootDirectory . $this->cloneModuleEventPlugins)
-                ->exec($this->CD_CE_RootDirectory . $this->addModuleApiExtensibilityRepo)
-                ->exec($this->CD_CE_RootDirectory . $this->addModuleAdobeIoEventsRepo)
-                ->exec($this->CD_CE_RootDirectory . $this->addModuleEventPluginsRepo)
-                ->exec($this->CD_CE_RootDirectory . $this->setMinimumStability)
-                ->exec($this->CD_CE_RootDirectory . $this->setPreferStable)
-                ->exec($this->CD_CE_RootDirectory . $this->composerUpdate)
-                ->exec($this->CD_CE_RootDirectory . $this->enableAllModules)
-                ->exec($this->CD_CE_RootDirectory . $this->compileMagento2)
+                ->exec($this->CD_CE_ParentDirectory . $this->cloneModuleApiExtensibility . $this->ignoreErrors)
+                ->exec($this->CD_CE_ParentDirectory . $this->cloneModuleAdobeIoEvents . $this->ignoreErrors)
+                ->exec($this->CD_CE_ParentDirectory . $this->cloneModuleEventPlugins . $this->ignoreErrors)
+                ->exec($this->CD_CE_RootDirectory   . $this->addModuleApiExtensibilityRepo)
+                ->exec($this->CD_CE_RootDirectory   . $this->addModuleAdobeIoEventsRepo)
+                ->exec($this->CD_CE_RootDirectory   . $this->addModuleEventPluginsRepo)
+                ->exec($this->CD_CE_RootDirectory   . $this->requireModuleApiExtensibility)
+                ->exec($this->CD_CE_RootDirectory   . $this->requireModuleAdobeIoEvents)
+                ->exec($this->CD_CE_RootDirectory   . $this->requireModuleEventsPlugins)
+                ->exec($this->CD_CE_RootDirectory   . $this->setMinimumStability)
+                ->exec($this->CD_CE_RootDirectory   . $this->setPreferStable)
+                ->exec($this->CD_CE_RootDirectory   . $this->composerUpdate)
+                ->exec($this->CD_CE_RootDirectory   . $this->enableAllModules)
+                ->exec($this->CD_CE_RootDirectory   . $this->compileMagento2)
                 ->run();
         } else if ($opts["ee"]) {
             $this->taskExecStack()
                 ->stopOnFail(false)
-                ->exec($this->CD_EE_RootDirectory . $this->cloneModuleApiExtensibility)
-                ->exec($this->CD_EE_RootDirectory . $this->cloneModuleAdobeIoEvents)
-                ->exec($this->CD_EE_RootDirectory . $this->cloneModuleEventPlugins)
-                ->exec($this->CD_EE_RootDirectory . $this->addModuleApiExtensibilityRepo)
-                ->exec($this->CD_EE_RootDirectory . $this->addModuleAdobeIoEventsRepo)
-                ->exec($this->CD_EE_RootDirectory . $this->addModuleEventPluginsRepo)
-                ->exec($this->CD_EE_RootDirectory . $this->setMinimumStability)
-                ->exec($this->CD_EE_RootDirectory . $this->setPreferStable)
-                ->exec($this->CD_EE_RootDirectory . $this->composerUpdate)
-                ->exec($this->CD_EE_RootDirectory . $this->enableAllModules)
-                ->exec($this->CD_EE_RootDirectory . $this->compileMagento2)
+                ->exec($this->CD_EE_ParentDirectory . $this->cloneModuleApiExtensibility . $this->ignoreErrors)
+                ->exec($this->CD_EE_ParentDirectory . $this->cloneModuleAdobeIoEvents . $this->ignoreErrors)
+                ->exec($this->CD_EE_ParentDirectory . $this->cloneModuleEventPlugins . $this->ignoreErrors)
+                ->exec($this->CD_EE_RootDirectory   . $this->addModuleApiExtensibilityRepo)
+                ->exec($this->CD_EE_RootDirectory   . $this->addModuleAdobeIoEventsRepo)
+                ->exec($this->CD_EE_RootDirectory   . $this->addModuleEventPluginsRepo)
+                ->exec($this->CD_EE_RootDirectory   . $this->requireModuleApiExtensibility)
+                ->exec($this->CD_EE_RootDirectory   . $this->requireModuleAdobeIoEvents)
+                ->exec($this->CD_EE_RootDirectory   . $this->requireModuleEventsPlugins)
+                ->exec($this->CD_EE_RootDirectory   . $this->setMinimumStability)
+                ->exec($this->CD_EE_RootDirectory   . $this->setPreferStable)
+                ->exec($this->CD_EE_RootDirectory   . $this->composerUpdate)
+                ->exec($this->CD_EE_RootDirectory   . $this->enableAllModules)
+                ->exec($this->CD_EE_RootDirectory   . $this->compileMagento2)
                 ->run();
         }
     }
@@ -427,12 +430,9 @@ class RoboFile extends \Robo\Tasks
      *
      * @param array $opts
      * @option $ce  Reset the DB and update the Git repos for the CE LAMP stack.
-     * @throws \Robo\Exception\TaskException
+     * @throws TaskException
      */
-    function reset($opts = [
-        "ce" => false,
-        "ee" => false
-    ]) {
+    function resetMagento($opts = ["ce" => false, "ee" => false]) {
         if ($opts["ce"]) {
             $this->taskExecStack()
                 ->stopOnFail(false)
@@ -468,17 +468,14 @@ class RoboFile extends \Robo\Tasks
      *
      * @param array $opts
      * @option $ce  Reinstall the entire CE LAMP stack.
-     * @throws \Robo\Exception\TaskException
+     * @throws TaskException
      */
-    function reinstall($opts = [
-        "ce" => false,
-        "ee" => false
-    ]) {
+    function reinstallMagento($opts = ["ce" => false, "ee" => false]) {
         if ($opts["ce"]) {
             $this->taskExecStack()
                 ->stopOnFail(false)
                 ->exec($this->CD_CE_ParentDirectory . $this->removeMagento2_CE)
-                ->exec($this->CD_CE_ParentDirectory . $this->cloneMagento2_CE)
+                ->exec($this->CD_CE_ParentDirectory . $this->cloneMagento2_CE . $this->ignoreErrors)
                 ->exec($this->CD_CE_RootDirectory   . $this->composerInstall)
                 ->exec($this->CD_CE_RootDirectory   . $this->install_CE_Command)
                 ->run();
@@ -487,8 +484,8 @@ class RoboFile extends \Robo\Tasks
                 ->stopOnFail(false)
                 ->exec($this->CD_EE_ParentDirectory . $this->removeMagento2_CE)
                 ->exec($this->CD_EE_ParentDirectory . $this->removeMagento2_EE)
-                ->exec($this->CD_EE_ParentDirectory . $this->cloneMagento2_CE)
-                ->exec($this->CD_EE_RootDirectory   . $this->cloneMagento2_EE)
+                ->exec($this->CD_EE_ParentDirectory . $this->cloneMagento2_CE . $this->ignoreErrors)
+                ->exec($this->CD_EE_RootDirectory   . $this->cloneMagento2_EE . $this->ignoreErrors)
                 ->exec($this->CD_EE_RootDirectory   . $this->composerInstall)
                 ->exec($this->CD_EE_RootDirectory   . "magento2ee" . $this->composerInstall)
                 ->exec($this->CD_EE_RootDirectory   . $this->install_EE_Command)
@@ -502,27 +499,24 @@ class RoboFile extends \Robo\Tasks
      *
      * @param array $opts
      * @option $ce  Full installation of the LAMP instance.
-     * @throws \Robo\Exception\TaskException
+     * @throws TaskException
      */
-    function fullInstall($opts = [
-        "ce" => false,
-        "ee" => false
-    ]) {
+    function fullInstall($opts = ["ce" => false, "ee" => false]) {
         if ($opts["ce"]) {
             $this->taskExecStack()
                 ->stopOnFail(false)
-                ->exec("robo setup --ce")
-                ->exec("robo install --ce")
-                ->exec("robo configure --ce")
-                ->exec("robo cache --ce")
+                ->exec("robo initial:setup --ce")
+                ->exec("robo install:magento --ce")
+                ->exec("robo configure:magento --ce")
+                ->exec("robo clean:cache --ce")
                 ->run();
         } else if ($opts["ee"]) {
             $this->taskExecStack()
                 ->stopOnFail(false)
-                ->exec("robo setup --ee")
-                ->exec("robo install --ee")
-                ->exec("robo configure --ee")
-                ->exec("robo cache --ee")
+                ->exec("robo initial:setup --ee")
+                ->exec("robo install:magento --ee")
+                ->exec("robo configure:magento --ee")
+                ->exec("robo clean:cache --ee")
                 ->run();
         }
     }
@@ -532,25 +526,22 @@ class RoboFile extends \Robo\Tasks
      *
      * @param array $opts
      * @option $ce  Full re-installation of the LAMP instance.
-     * @throws \Robo\Exception\TaskException
+     * @throws TaskException
      */
-    function fullReinstall($opts = [
-        "ce" => false,
-        "ee" => false
-    ]) {
+    function fullReinstall($opts = ["ce" => false, "ee" => false]) {
         if ($opts["ce"]) {
             $this->taskExecStack()
                 ->stopOnFail(false)
-                ->exec("robo reinstall --ce")
-                ->exec("robo configure --ce")
-                ->exec("robo cache --ce")
+                ->exec("robo reinstall:magento --ce")
+                ->exec("robo configure:magento --ce")
+                ->exec("robo clean:cache --ce")
                 ->run();
         } else if ($opts["ee"]) {
             $this->taskExecStack()
                 ->stopOnFail(false)
-                ->exec("robo reinstall --ee")
-                ->exec("robo configure --ee")
-                ->exec("robo cache --ee")
+                ->exec("robo reinstall:magento --ee")
+                ->exec("robo configure:magento --ee")
+                ->exec("robo clean:cache --ee")
                 ->run();
         }
     }
@@ -560,40 +551,34 @@ class RoboFile extends \Robo\Tasks
      *
      * @param array $opts
      * @option $ce  Full Reset of the LAMP instance.
-     * @throws \Robo\Exception\TaskException
+     * @throws TaskException
      */
-    function fullReset($opts = [
-        "ce" => false,
-        "ee" => false
-    ]) {
+    function fullReset($opts = ["ce" => false, "ee" => false]) {
         if ($opts["ce"]) {
             $this->taskExecStack()
                 ->stopOnFail(false)
-                ->exec("robo reset --ce")
-                ->exec("robo configure --ce")
-                ->exec("robo cache --ce")
+                ->exec("robo reset:magento --ce")
+                ->exec("robo configure:magento --ce")
+                ->exec("robo clean:cache --ce")
                 ->run();
         } else if ($opts["ee"])  {
             $this->taskExecStack()
                 ->stopOnFail(false)
-                ->exec("robo reset --ee")
-                ->exec("robo configure --ee")
-                ->exec("robo cache --ee")
+                ->exec("robo reset:magento --ee")
+                ->exec("robo configure:magento --ee")
+                ->exec("robo clean:cache --ee")
                 ->run();
         }
     }
 
     /**
-     * Set "Developer Mode" for a specific Environment.
+     * Set "Developer Mode" for a specific environment.
      *
      * @param array $opts
      * @option $ce  Set "Production Mode" for the LAMP instance.
-     * @throws \Robo\Exception\TaskException
+     * @throws TaskException
      */
-    function modeDeveloper($opts = [
-        "ce" => false,
-        "ee" => false
-    ]) {
+    function modeDeveloper($opts = ["ce" => false, "ee" => false]) {
         if ($opts["ce"]) {
             $this->taskExecStack()
                 ->stopOnFail(false)
@@ -608,16 +593,13 @@ class RoboFile extends \Robo\Tasks
     }
 
     /**
-     * Set "Production Mode" for a specific Environment.
+     * Set "Production Mode" for a specific environment.
      *
      * @param array $opts
      * @option $ce  Set "Production Mode" for the LAMP instance.
-     * @throws \Robo\Exception\TaskException
+     * @throws TaskException
      */
-    function modeProduction($opts = [
-        "ce" => false,
-        "ee" => false
-    ]) {
+    function modeProduction($opts = ["ce" => false, "ee" => false]) {
         if ($opts["ce"]) {
             $this->taskExecStack()
                 ->stopOnFail(false)
@@ -636,12 +618,9 @@ class RoboFile extends \Robo\Tasks
      *
      * @param array $opts
      * @option $ce  Cleans and flushes the cache for the LAMP instance.
-     * @throws \Robo\Exception\TaskException
+     * @throws TaskException
      */
-    function cache($opts = [
-        "ce" => false,
-        "ee" => false
-    ]) {
+    function cleanCache($opts = ["ce" => false, "ee" => false]) {
         if ($opts["ce"]) {
             $this->taskExecStack()
                 ->stopOnFail(false)
