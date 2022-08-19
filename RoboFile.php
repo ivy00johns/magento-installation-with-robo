@@ -81,7 +81,7 @@ class RoboFile extends \Robo\Tasks
     var $addModuleAdobeIoEventsRepo    = " && composer config repositories.module-adobe-io-events '{\"type\": \"git\", \"url\": \"git@github.com:magento-commerce/module-adobe-io-events.git\"}'";
     var $addModuleEventPluginsRepo     = " && composer config repositories.module-event-plugins '{\"type\": \"git\", \"url\": \"git@github.com:magento-commerce/module-event-plugins.git\"}'";
 
-    var $requireModuleApiExtensibility = " && composer require \"magento/module-api-extensibility\" magento/module-api-extensibility:dev-main";
+    var $requireModuleApiExtensibility = " && composer require \"magento/module-api-extensibility\" magento/module-api-extensibility:*";
     var $requireModuleAdobeIoEvents    = " && composer require \"magento/module-adobe-io-events\" magento/module-adobe-io-events:dev-master";
     var $requireModuleEventsPlugins    = " && composer require \"magento/module-event-plugins\" magento/module-event-plugins:dev-main";
 
@@ -101,6 +101,7 @@ class RoboFile extends \Robo\Tasks
     var $flushCache         = " && bin/magento cache:flush";
 
     var $enableAllModules   = " && bin/magento module:enable --all";
+    var $upgradeAllModules  = " && bin/magento setup:upgrade";
     var $compileMagento2    = " && bin/magento setup:di:compile";
 
     var $setAdobeIOWorkspaceConfiguration = " && configFile=\$(cat ../config/stage.json)  && bin/magento config:set adobe_io_events/integration/workspace_configuration \"\$configFile\"";
@@ -360,6 +361,7 @@ class RoboFile extends \Robo\Tasks
                 ->exec($this->CD_CE_ParentDirectory . $this->installSaasExport_CE)
                 ->exec($this->CD_CE_ParentDirectory . $this->installInventory_CE)
                 ->exec($this->CD_CE_RootDirectory   . $this->enableAllModules)
+                ->exec($this->CD_CE_RootDirectory   . $this->upgradeAllModules)
                 ->run();
         } else if ($opts["ee"]) {
             $this->taskExecStack()
@@ -375,6 +377,7 @@ class RoboFile extends \Robo\Tasks
                 ->exec($this->CD_EE_ParentDirectory . $this->installSaasExport_EE)
                 ->exec($this->CD_EE_ParentDirectory . $this->installInventory_EE)
                 ->exec($this->CD_EE_RootDirectory   . $this->enableAllModules)
+                ->exec($this->CD_EE_RootDirectory   . $this->upgradeAllModules)
                 ->run();
         }
     }
@@ -402,6 +405,7 @@ class RoboFile extends \Robo\Tasks
                 ->exec($this->CD_CE_RootDirectory   . $this->setPreferStable)
                 ->exec($this->CD_CE_RootDirectory   . $this->composerUpdate)
                 ->exec($this->CD_CE_RootDirectory   . $this->enableAllModules)
+                ->exec($this->CD_CE_RootDirectory   . $this->upgradeAllModules)
                 ->exec($this->CD_CE_RootDirectory   . $this->compileMagento2)
                 ->run();
         } else if ($opts["ee"]) {
@@ -420,7 +424,31 @@ class RoboFile extends \Robo\Tasks
                 ->exec($this->CD_EE_RootDirectory   . $this->setPreferStable)
                 ->exec($this->CD_EE_RootDirectory   . $this->composerUpdate)
                 ->exec($this->CD_EE_RootDirectory   . $this->enableAllModules)
+                ->exec($this->CD_EE_RootDirectory   . $this->upgradeAllModules)
                 ->exec($this->CD_EE_RootDirectory   . $this->compileMagento2)
+                ->run();
+        }
+    }
+
+    /**
+     *
+     */
+    function configureEventingModules($opts = ["ce" => false, "ee" => false]) {
+        if ($opts["ce"]) {
+            $this->taskExecStack()
+                ->stopOnFail(false)
+                ->exec($this->CD_CE_RootDirectory . $this->setAdobeIOWorkspaceConfiguration)
+                ->exec($this->CD_CE_RootDirectory . $this->setServiceAccountPrivateKey)
+                ->exec($this->CD_CE_RootDirectory . $this->setAdobeCommerceInstanceID)
+                ->exec($this->CD_CE_RootDirectory . $this->setAdobeIOEventProviderID)
+                ->run();
+        } else if ($opts["ee"]) {
+            $this->taskExecStack()
+                ->stopOnFail(false)
+                ->exec($this->CD_EE_RootDirectory . $this->setAdobeIOWorkspaceConfiguration)
+                ->exec($this->CD_EE_RootDirectory . $this->setServiceAccountPrivateKey)
+                ->exec($this->CD_EE_RootDirectory . $this->setAdobeCommerceInstanceID)
+                ->exec($this->CD_EE_RootDirectory . $this->setAdobeIOEventProviderID)
                 ->run();
         }
     }
